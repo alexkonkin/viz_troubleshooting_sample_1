@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<!-- Provide the URL to visualize.js -->
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+
+<script src="http://localhost:8630/jasperserver-pro/client/visualize.js?_opt=true&logEnabled=true&logLevel=debug"></script> 
+<script src="http://code.jquery.com/jquery-2.1.0.js"></script>
+
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+
+<script src="http://underscorejs.org/underscore-min.js"></script>
+
+
+</head>
+
+<body>
+<div id="contInputControl" style="height:60px; background-color:none;">
+	<div id="loadingBanner" style="position: absolute; top: 2%"><b>Generating Input Control...</b></div>
+</div>
+<button type="button" id="applyValue">Apply value   test</button>
+<button type="button" id="applyValue1">Apply value   test</button>
+<div id="contReport">
+</div>
+
+<div id="message" class="container" style="display:none">
+	<div class="row" style="position: fixed; top:50%; left:20%; width: 60%">
+	 <div class="span4">  
+	     <div class="alert alert-info">
+			<p class="text-center h4" style="margin-top:0px"><strong>The report is empty</strong>
+				<span class="btn-group  pull-right">
+					<button class="close" id="msgBtn" style="margin-top:0px; margin-bottom:0px" onclick="$('#message').hide()">&times;</button>
+				</span>
+			</p>
+	     </div>
+	   </div>
+	</div>
+</div>
+
+
+
+<script type="text/javascript">
+visualize(
+{
+	server : "http://localhost:8630/jasperserver-pro", 
+	auth: { 
+		name: "superuser",
+		password: "superuser"
+	} 
+}, 
+function (v) {
+	var sharedInfo = (function() {
+	    var pageCount = 0;
+
+	    return {
+		setPageCount: function(number) {
+		    pageCount = number;
+		},
+		getPageCount: function() {
+		    return pageCount;
+		}
+	    };
+	})();
+
+	v.inputControls({
+		resource: "/public/SME/EmployeeAccounts",
+		success: function (controls) {
+			$("#contInputControl").text('');
+			controls.forEach(buildControl);
+		},
+		error: function (err) {
+			alert(err);
+		}
+	});
+
+	var report = v.report({
+		resource: "/public/SME/EmployeeAccounts",
+		container: "#contReport",
+		params: { "EmployeeID": ["jim_id"] },
+		//runImmediately: false,
+		events: { 
+				reportCompleted: function(status){
+					console.log("Report status: "+status);
+					if(sharedInfo.getPageCount() == 0){
+						$("#message").css({"display":"block"});
+					} else {
+						$("#message").css({"display":"none"});
+					}
+				},
+				changeTotalPages: function(totalPages) {
+					sharedInfo.setPageCount(totalPages);
+				}
+			
+		}
+		//,
+		//error: function(err){console.log("Stack trace: "+new Error().stack+"\n"+"\n Error message: "+err.message)}
+		//error: function(err){console.log()}
+		
+	});
+
+	report
+	.params({ "EmployeeID": ["jim_id"] })
+	.run();
+	/*
+	.fail(function(err){
+		return console.log("Stack: "+new Error().stack+"\n Err.message: "+err.message);
+	});
+	*/
+
+	//bug
+	//incorrect processing of the ready event during the report execution on server side
+	
+	function buildControl(control) {
+		function buildOptions(options) {
+			var template = "<option value={value} {selected}>{label}</option>";
+			
+			return options.reduce(function (memo, option) {
+				replaceValue = template.replace("{value}", option.value);
+				replaceLabel = replaceValue.replace("{label}", option.label);
+				if(option.selected == false)
+					replaceSelected = replaceLabel.replace("{selected}", '');
+				else
+					replaceSelected = replaceLabel.replace("{selected}", 'selected');
+				return memo + replaceSelected;
+			}, "")
+		}
+		
+	    var template = "<label>{label}</label><p><select id='customerId'>{options}</select><br>",
+		content = template.replace("{label}", control.label).replace("{options}", buildOptions(control.state.options));
+		$("#contInputControl").append($(content));
+		
+	}
+
+	$('#applyValue').on('click', function(){
+		report
+		.params({ "EmployeeID": [ $('#customerId').val()]})
+		.run();
+	});
+});
+
+
+</script>
+</body>
+</html>
